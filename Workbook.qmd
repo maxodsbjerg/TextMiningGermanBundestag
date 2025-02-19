@@ -1,0 +1,168 @@
+---
+title: "Most frequent words in kleiner anfrage"
+format: html
+editor: visual
+---
+
+# Loading relevant libraries
+
+The dataset is processed in the software programme R, offering various methods for statistical analysis and graphic representation of the results. In R, one works with packages each adding numerous functionalities to the core functions of R. In this example, the relevant packages are:
+
+Documentation for each package: <br> *https://www.tidyverse.org/packages/* <br> https://cran.r-project.org/web/packages/tidytext/vignettes/tidytext.html <br> *https://lubridate.tidyverse.org/* <br> https://ggplot2.tidyverse.org/ <br> \*https://cran.r-project.org/web/packages/ggwordcloud/vignettes/ggwordcloud.html<br>
+
+Additional information about R: https://www.r-project.org/
+
+```{r}
+
+
+
+
+```
+
+# Importing the data
+
+The dataset is loaded into R. This data is loaded into R with the `read_csv` function since we have the Kleine Anfrage in a csv-document extracted from the API-service of Deutscher Bundestag/Bundesrat – DIP. See more about the API here: https://search.dip.bundestag.de/api/v1/swagger-ui/
+
+```{r}
+
+
+```
+
+CSV is short for Comma Separated Values that is a way of structuring a dataset in plain text. CSV files are structured in columns separated by commas and in rows separated by lines. Each row in the data correspond to identified articles by the segmentations-process during the digitisation process of the newspapers.\
+In the output from the `read_csv`-function R tells us which columns are present in the dataset and what type of data it has recognised in the column's rows. Most of them are "col_character()", which means the rows in the column contains textual data (character signs). Others have the "col_double()", which means the rows in the column contains numbers. This is a question of datatypes, which can be very important when coding, but in the case of this workshop we won't work further with them.
+
+# Which parties does the Kleine Anfragen? 
+
+The following code takes the dataset KleineAnfragen and applies count(urheber_bezeichnung, sort = TRUE), which counts occurrences of each unique value in the column urheber_bezeichnung. The results are then sorted in descending order by frequency, showing the most common values first.
+
+```{r}
+
+
+```
+
+
+# The text mining task
+
+Text mining is a term that covers a large variety of approaches and concrete methods. In this example we will use the tidytext approach, which is presented in the book [Text Mining with R - a tidy approach](https://www.tidytextmining.com). The method we will be employing is the term frequency - inversed document frequency. This method can be used to create little "summaries" of documents within a corpus by extracting the words that are most significant to each document. By doing this we can create a so-called distant reading of a large data corpus. 
+
+This code takes the dataset KleineAnfragen and applies unnest_tokens(word, text), which tokenizes the text column into individual words. Each word becomes a separate row in the new dataset KleineAnfragen_tidy, stored in the word column. This process is commonly used in text mining to break text into manageable units for analysis
+
+```{r}
+
+
+```
+
+## Most occurring words 
+Since we now has the text from the articles on the one word pr. row-format we can count the words to see, which words are used most frequently.
+
+```{r}
+
+
+```
+Not surprisingly, particles are the most common words we find. This is not particularly interesting for us in this enquiry.  We sort them out by using a stop word list:
+
+```{r}
+
+
+```
+
+Using this list for sorting out the words we can redo the counting: 
+```{r}
+
+
+```
+
+
+## Counting longer words
+This code filters words in the KleineAnfrager_tidy dataset to keep only those with more than 8 characters. Then, it counts the occurrences of these words and sorts the result in descending order of frequency.
+
+```{r}
+
+
+
+```
+
+# More context: bigrams
+In this section we'll try to give a bit more context by seeing which words is used before words of interest. This is done by using bigrams
+N-grams are overlapping, so in a scenario with bigrams, the text "the happy cat walks on the ridge" becomes:
+
+"the happy", "happy cat", "cat walks", "walks", "on the ridge", "the ridge NA"
+
+Please note that the last word in the last bigram is the value "NA". There is no last word in this bigram.
+
+
+## Diving into Kleine Anfrage from AfD
+First we'll create a subset of the Kleine Anfragen from Linke: 
+
+```{r}
+
+
+```
+
+As before, we use unnest_tokens, but this time we specify that we want word pairs (bigrams).
+```{r}
+
+
+```
+
+
+Just like with before with words, we can also count bigrams:
+
+```{r}
+
+```
+
+Once again we encounter stop words that are disrupting us. We would like to filter out word pairs with stop words. Before we can remove word pairs where one of the words is a stop word, we need to split the column "bigram" into two: "word1", "word2":
+
+```{r}
+
+```
+
+
+Then we can filter out the stop words in both columns, which we save to a new dataframe:
+```{r}
+
+
+```
+
+
+Next, we can count our bigrams without stop words:
+```{r}
+
+
+```
+
+First of all, we save the above count to a new data frame so that we can continue working with it:
+
+```{r}
+
+
+```
+
+
+Afterwards, we use the "igraph" package to convert our dataframe into a network graph element. Before that, we specify that we are only interested in bigrams that occur more than 3 times:
+
+```{r}
+
+
+```
+
+Finally, we use the "ggraph" package to visualize the network:
+
+
+
+```{r}
+
+```
+
+# kwic 
+```{r}
+
+```
+```{r}
+
+```
+
+https://dserver.bundestag.de/btd/20/125/2012588.pdf
+
+

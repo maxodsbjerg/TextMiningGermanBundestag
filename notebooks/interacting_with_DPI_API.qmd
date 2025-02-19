@@ -1,0 +1,142 @@
+---
+title: "Interacting with the API des Dokumentations- und Informationssystems für Parlamentsmaterialien"
+format: html
+editor: visual
+---
+
+
+
+```{r}
+library(tidyverse)
+library(jsonlite)
+library(tidybundestag)
+```
+
+
+
+
+I9FKdCn.hbfefNWCY336dL6x62vfwNKpoN2RZ1gp21
+
+
+
+
+```{r}
+cursor <- NULL          # No cursor for the first request
+results <- tibble()     # To store retrieved entities
+has_more_data <- TRUE   # Flag to track whether more data is available
+
+while (has_more_data) {
+  # Make the API request, omitting the cursor for the first request
+  if (is.null(cursor)) {
+    response <- fromJSON('https://search.dip.bundestag.de/api/v1/drucksache-text?f.datum.start=2024-01-01&f.datum.end=2024-12-31&f.drucksachetyp=Kleine%20Anfrage&format=json&apikey=I9FKdCn.hbfefNWCY336dL6x62vfwNKpoN2RZ1gp21') # First request without a cursor
+  } else {
+    response <- fromJSON(paste0('https://search.dip.bundestag.de/api/v1/drucksache-text?f.datum.start=2024-01-01&f.datum.end=2024-12-31&f.drucksachetyp=Kleine%20Anfrage&format=json&apikey=I9FKdCn.hbfefNWCY336dL6x62vfwNKpoN2RZ1gp21&cursor=', cursor)) # Subsequent requests with cursor
+  }
+  
+  # Parse the response to extract entities and the new cursor
+  entities <- response$documents  # Adjust based on response structure
+  new_cursor <- response$cursor  # Extract the cursor
+  
+  # Append the retrieved entities to the results list
+  results <- bind_rows(results, entities)
+  
+  # Check if the cursor has stopped changing or is NULL
+  if (is.null(new_cursor) || is.na(new_cursor) || (!is.null(cursor) && !is.na(cursor) && new_cursor == cursor)) {
+    has_more_data <- FALSE  # Stop the loop if no more data
+  }
+  
+  # Update the cursor for the next iteration
+  cursor <- new_cursor
+}
+```
+
+
+
+
+
+```{r}
+results %>% 
+  unnest(urheber, names_sep = "_", keep_empty = T) -> k_anfrage 
+```
+
+
+
+# Text mining
+
+```{r}
+library(stopwords)
+library(tidytext)
+```
+
+
+```{r}
+stopwort <- tibble(word = stopwords("de"))
+```
+
+
+```{r}
+k_anfrage_tidy <-  k_anfrage %>% unnest_tokens(word, text)
+```
+
+
+```{r}
+k_anfrage_tidy %>% 
+  anti_join(stopwort, by = "word") %>% 
+  count(word, sort = TRUE)
+```
+
+# tf IDF
+
+
+
+735 medlemmer i Bundestag
+
+
+
+```{r}
+library(rvest)
+```
+```{r}
+url <- read_html("https://en.wikipedia.org/wiki/List_of_members_of_the_20th_Bundestag")
+```
+
+
+
+```{r}
+(url %>% 
+  html_table())[[7]] -> MdB
+```
+
+```{r}
+stopwort_MdB <- MdB %>% 
+  select(Name) %>% 
+  unnest_tokens(word, Name)
+```
+
+
+
+```{r}
+k_anfrage_tfidf <- k_anfrage_tidy %>% 
+  count(word, urheber_bezeichnung) %>% 
+  bind_tf_idf(word, urheber_bezeichnung, n)
+```
+
+
+document = factor(document, levels=c("KB_strategi", "AUL_strategi", "AUL_aarsplan")),
+
+```{r}
+k_anfrage_tfidf %>%
+  anti_join(stopwort_MdB, by = "word") %>% 
+  group_by(urheber_bezeichnung) %>%
+  slice_max(tf_idf, n = 15) %>%
+  ungroup %>%
+  mutate(word = reorder_within(word, tf_idf, urheber_bezeichnung)) %>%
+  ggplot(aes(word, tf_idf, fill = urheber_bezeichnung)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~urheber_bezeichnung, scales = "free_y") +
+  coord_flip() +
+  scale_x_reordered() +
+  scale_y_continuous(expand = c(0,0)) +
+  labs(title = "Characteristic word for the parties Kleiner Anfrage-questions", subtitle = "Determined by term frequency - inversed document frequency")
+```
+Die Linke - CDU/CSU - FDP - AfD
